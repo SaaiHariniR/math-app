@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Word Master - Guess the Word!</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            min-height: 100vh;
+        }
+
+        .font-game {
+            font-family: 'Fredoka', cursive;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .emoji-shadow {
+            filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-8px) scale(1.03); }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-pop {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Toggle switch custom style */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10B981;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #10B981;
+        }
+    </style>
+</head>
+<body class="text-white flex flex-col justify-between items-center p-4 sm:p-6 min-h-screen relative overflow-x-hidden">
+
+    <!-- Top Header & Stats Bar -->
+    <header class="w-full max-w-2xl flex flex-wrap justify-between items-center gap-3 mb-4 z-10">
+        <div class="flex items-center gap-2">
+            <div class="bg-amber-500/20 p-2.5 rounded-2xl border border-amber-500/30 text-amber-400 text-2xl">
+                💻
+            </div>
+            <div>
+                <h1 class="font-game text-xl sm:text-2xl font-bold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-400 to-pink-500">
+                    CS Emoji Master
+                </h1>
+                <p class="text-xs text-slate-400">Guess the Computer Science term!</p>
+            </div>
+        </div>
+
+        <!-- Score & Streak Pills -->
+        <div class="flex items-center gap-2">
+            <div class="glass-card px-3 py-1.5 rounded-xl flex items-center gap-2 border border-amber-500/30">
+                <i class="fa-solid fa-trophy text-amber-400 text-sm"></i>
+                <span class="text-xs text-slate-300 uppercase tracking-wider font-semibold">Score:</span>
+                <span id="score-display" class="font-bold text-amber-400 font-game text-lg">0</span>
+            </div>
+
+            <div class="glass-card px-3 py-1.5 rounded-xl flex items-center gap-2 border border-orange-500/30">
+                <i class="fa-solid fa-fire text-orange-500 text-sm animate-pulse"></i>
+                <span id="streak-display" class="font-bold text-orange-400 font-game text-lg">0</span>
+            </div>
+
+            <!-- Sound FX Toggle -->
+            <button id="sound-btn" onclick="toggleSound()" title="Toggle Sound" class="glass-card p-2 rounded-xl text-slate-300 hover:text-white transition hover:bg-white/10">
+                <i id="sound-icon" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Controls & Timer Bar -->
+    <div class="w-full max-w-2xl glass-card rounded-2xl p-3 mb-6 flex flex-wrap justify-between items-center gap-4 z-10">
+        <!-- Timer Toggle Switch -->
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-stopwatch text-indigo-400"></i>
+            <span class="text-xs sm:text-sm font-semibold text-slate-200">Timer Mode</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="timer-toggle" class="sr-only peer" checked onchange="handleTimerToggle(this)">
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+        </div>
+
+        <!-- Timer Display Count & Bar -->
+        <div id="timer-container" class="flex items-center gap-3 flex-1 max-w-[200px] justify-end">
+            <div class="w-full bg-slate-800/80 rounded-full h-2.5 overflow-hidden border border-slate-700/50">
+                <div id="timer-bar" class="bg-gradient-to-r from-emerald-400 to-emerald-500 h-2.5 rounded-full transition-all duration-1000 w-full"></div>
+            </div>
+            <span id="timer-text" class="font-game font-bold text-emerald-400 min-w-[28px] text-right text-lg">20s</span>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-2xl flex-1 flex flex-col justify-center items-center z-10 my-auto">
+        
+        <!-- Puzzle Card -->
+        <div id="game-card" class="w-full glass-card rounded-3xl p-6 sm:p-8 flex flex-col items-center relative overflow-hidden transition-all duration-300">
+            
+            <!-- Category Tag & Level Badge -->
+            <div class="w-full flex justify-between items-center mb-6">
+                <span id="category-badge" class="px-3.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+                    <i class="fa-solid fa-clapperboard text-xs"></i> <span id="category-name">Movie</span>
+                </span>
+                <span id="level-badge" class="text-xs font-bold text-slate-400 tracking-wider">
+                    QUESTION <span id="current-level-num" class="text-white">1</span> / <span id="total-levels-num">15</span>
+                </span>
+            </div>
+
+            <!-- Emojis Display Area -->
+            <div class="my-4 py-6 px-8 bg-slate-900/40 rounded-2xl border border-white/5 w-full flex justify-center items-center gap-2 sm:gap-4 min-h-[140px] shadow-inner">
+                <div id="emoji-display" class="text-5xl sm:text-7xl tracking-wider select-none animate-float emoji-shadow filter">
+                    🐍 💻
+                </div>
+            </div>
+
+            <!-- Hint Display Banner (Hidden by default) -->
+            <div id="hint-container" class="hidden w-full bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4 text-center text-amber-300 text-xs sm:text-sm animate-pop">
+                <i class="fa-solid fa-lightbulb text-amber-400 mr-1.5"></i>
+                <span id="hint-text">Clue: High-level programming language</span>
+            </div>
+
+            <!-- Letter Count Clue -->
+            <p id="letter-count-text" class="text-xs text-slate-400 mb-3 tracking-widest uppercase font-semibold">
+                Word Pattern: <span id="word-pattern" class="text-indigo-300 font-mono text-sm">_ _ _ _ _ _</span>
+            </p>
+
+            <!-- Input Form -->
+            <form id="guess-form" onsubmit="submitGuess(event)" class="w-full max-w-md flex flex-col gap-3">
+                <div class="relative w-full">
+                    <input 
+                        type="text" 
+                        id="user-input" 
+                        placeholder="Type your guess here..." 
+                        autocomplete="off"
+                        autofocus
+                        class="w-full px-5 py-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 text-center font-bold text-lg sm:text-xl tracking-wide transition shadow-lg"
+                    />
+                </div>
+
+                <!-- Submit & Helper Buttons -->
+                <div class="flex gap-2 w-full">
+                    <button 
+                        type="button" 
+                        onclick="useHint()" 
+                        id="hint-btn"
+                        class="glass-card px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40 transition flex items-center justify-center gap-1.5"
+                    >
+                        <i class="fa-solid fa-lightbulb"></i> Hint (-5 pts)
+                    </button>
+                    
+                    <button 
+                        type="submit" 
+                        id="submit-btn"
+                        class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-indigo-500/25 active:scale-95 transition transform flex items-center justify-center gap-2 text-base tracking-wide"
+                    >
+                        <span>Submit Guess</span>
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Success Overlay Card (Hidden by default, triggered on correct answer) -->
+            <div id="success-overlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center hidden z-20 animate-pop">
+                <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mb-3 border border-emerald-500/40 animate-bounce">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h3 class="font-game text-2xl sm:text-3xl font-bold text-emerald-400 mb-1">Spot On!</h3>
+                <p class="text-xs text-slate-300 mb-2">You guessed it right!</p>
+                
+                <div class="bg-slate-900/80 border border-slate-700/60 rounded-xl px-6 py-3 my-3">
+                    <span id="revealed-answer" class="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-200 font-game">
+                        PYTHON
+                    </span>
+                </div>
+
+                <p id="bonus-points-text" class="text-xs text-amber-400 font-semibold mb-6">+10 Points earned!</p>
+
+                <!-- NEXT BUTTON -->
+                <button 
+                    onclick="loadNextQuestion()" 
+                    id="next-btn"
+                    class="w-full max-w-xs bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold py-3.5 px-8 rounded-2xl shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition transform flex items-center justify-center gap-3 text-lg font-game"
+                >
+                    <span>Next Question</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Timeout Overlay Card -->
+            <div id="timeout-overlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center hidden z-20 animate-pop">
+                <div class="w-16 h-16 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center text-3xl mb-3 border border-rose-500/40">
+                    <i class="fa-solid fa-hourglass-end"></i>
+                </div>
+                <h3 class="font-game text-2xl sm:text-3xl font-bold text-rose-400 mb-1">Time's Up!</h3>
+                <p class="text-xs text-slate-300 mb-2">The correct answer was:</p>
+                
+                <div class="bg-slate-900/80 border border-slate-700/60 rounded-xl px-6 py-3 my-3">
+                    <span id="timeout-answer" class="text-xl sm:text-2xl font-extrabold text-amber-300 font-game">
+                        PYTHON
+                    </span>
+                </div>
+
+                <!-- NEXT BUTTON FOR TIMEOUT -->
+                <button 
+                    onclick="loadNextQuestion()" 
+                    class="w-full max-w-xs bg-slate-700 hover:bg-slate-600 text-white font-bold py-3.5 px-8 rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition transform flex items-center justify-center gap-3 text-lg font-game mt-4"
+                >
+                    <span>Continue</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Game Completed Overlay -->
+    <div id="completion-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-lg flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-card rounded-3xl p-8 max-w-md w-full text-center border border-amber-500/30 shadow-2xl animate-pop">
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 class="font-game text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-200 mb-2">
+                Puzzle Master!
+            </h2>
+            <p class="text-slate-300 text-sm mb-6">You have completed all available emoji puzzles!</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 mb-6 border border-slate-800 flex justify-around">
+                <div>
+                    <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Final Score</p>
+                    <p id="final-score" class="text-3xl font-bold text-amber-400 font-game">0</p>
+                </div>
+                <div class="border-r border-slate-800"></div>
+                <div>
+                    <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Best Streak</p>
+                    <p id="final-streak" class="text-3xl font-bold text-orange-500 font-game">0</p>
+                </div>
+            </div>
+
+            <button 
+                onclick="restartGame()" 
+                class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-orange-500/25 hover:scale-105 active:scale-95 transition transform font-game text-lg"
+            >
+                Play Again <i class="fa-solid fa-rotate-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-2xl text-center text-xs text-slate-500 py-4 z-10">
+        Guess the word by Emojis • Built with interactive Confetti & Audio Effects
+    </footer>
+
+    <script>
+        // Comprehensive Computer Science Question Database
+        const questions = [
+            {
+                emoji: "🐍 💻",
+                answer: "python",
+                displayAnswer: "Python",
+                category: "Programming",
+                hint: "Popular high-level snake-named coding language",
+                alts: ["python language"]
+            },
+            {
+                emoji: "☁️ 💻",
+                answer: "cloud computing",
+                displayAnswer: "Cloud Computing",
+                category: "Infrastructure",
+                hint: "On-demand delivery of IT resources over the Internet",
+                alts: ["cloud", "the cloud"]
+            },
+            {
+                emoji: "🐛 🔍",
+                answer: "debugging",
+                displayAnswer: "Debugging",
+                category: "Software Dev",
+                hint: "The process of finding and fixing errors in code",
+                alts: ["debug", "bug hunting"]
+            },
+            {
+                emoji: "🛡️ 🔥",
+                answer: "firewall",
+                displayAnswer: "Firewall",
+                category: "Cyber Security",
+                hint: "Network security system that monitors and controls traffic",
+                alts: ["fire wall"]
+            },
+            {
+                emoji: "🤖 🧠",
+                answer: "artificial intelligence",
+                displayAnswer: "Artificial Intelligence",
+                category: "AI & ML",
+                hint: "Simulation of human intelligence in machines (AI)",
+                alts: ["ai"]
+            },
+            {
+                emoji: "🥞 🌊",
+                answer: "stack overflow",
+                displayAnswer: "Stack Overflow",
+                category: "Developer Life",
+                hint: "Famous Q&A website every developer visits daily",
+                alts: ["stackoverflow"]
+            },
+            {
+                emoji: "☕ 📜",
+                answer: "javascript",
+                displayAnswer: "JavaScript",
+                category: "Web Dev",
+                hint: "The core programming language of the Web",
+                alts: ["js"]
+            },
+            {
+                emoji: "0️⃣ 1️⃣",
+                answer: "binary code",
+                displayAnswer: "Binary Code",
+                category: "Basics",
+                hint: "Base-2 numeral system used internally by almost all computers",
+                alts: ["binary"]
+            },
+            {
+                emoji: "🗄️ 💾",
+                answer: "database",
+                displayAnswer: "Database",
+                category: "Systems",
+                hint: "Organized collection of structured information or data",
+                alts: ["data base"]
+            },
+            {
+                emoji: "🧱 ⛓️",
+                answer: "blockchain",
+                displayAnswer: "Blockchain",
+                category: "Tech",
+                hint: "Decentralized, distributed digital ledger technology",
+                alts: ["block chain"]
+            },
+            {
+                emoji: "📦 🚢",
+                answer: "docker",
+                displayAnswer: "Docker",
+                category: "DevOps",
+                hint: "Containerization platform represented by a cargo whale logo",
+                alts: ["containers", "containerization"]
+            },
+            {
+                emoji: "🐧 💻",
+                answer: "linux",
+                displayAnswer: "Linux",
+                category: "Operating System",
+                hint: "Open-source OS represented by Tux the penguin mascot",
+                alts: ["linux os"]
+            },
+            {
+                emoji: "🔑 🔒",
+                answer: "encryption",
+                displayAnswer: "Encryption",
+                category: "Cyber Security",
+                hint: "Encoding information so only authorized parties can read it",
+                alts: ["encrypt"]
+            },
+            {
+                emoji: "🕸️ 🌐",
+                answer: "world wide web",
+                displayAnswer: "World Wide Web",
+                category: "Networking",
+                hint: "WWW - System of interconnected hypertext documents",
+                alts: ["web", "www"]
+            },
+            {
+                emoji: "🌳 📊",
+                answer: "data structure",
+                displayAnswer: "Data Structure",
+                category: "CS Theory",
+                hint: "Specialized format for organizing and storing data (e.g. Trees)",
+                alts: ["data structures", "tree"]
+            }
+        ];
+
+        // Game State
+        let currentIndex = 0;
+        let score = 0;
+        let streak = 0;
+        let maxStreak = 0;
+        let timerEnabled = true;
+        let timerInterval = null;
+        let timeLeft = 20;
+        const TIME_LIMIT = 20;
+        let soundEnabled = true;
+        let hintUsed = false;
+
+        // Simple Web Audio API Synthesizer (No external audio files required)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'correct') {
+                    // Success arpeggio
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                    osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+                } else if (type === 'wrong') {
+                    // Error buzz sound
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'tick') {
+                    // Timer tick
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                }
+            } catch (e) {
+                console.log("Audio API playback error:", e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-sm text-emerald-400';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-sm text-rose-400';
+            }
+        }
+
+        // Initialize Game
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('total-levels-num').innerText = questions.length;
+            loadQuestion();
+        });
+
+        // Render Current Question
+        function loadQuestion() {
+            if (currentIndex >= questions.length) {
+                showCompletionScreen();
+                return;
+            }
+
+            const currentQ = questions[currentIndex];
+            hintUsed = false;
+
+            // Reset UI Overlays
+            document.getElementById('success-overlay').classList.add('hidden');
+            document.getElementById('timeout-overlay').classList.add('hidden');
+            document.getElementById('hint-container').classList.add('hidden');
+            
+            // Enable Inputs
+            document.getElementById('user-input').value = '';
+            document.getElementById('user-input').disabled = false;
+            document.getElementById('submit-btn').disabled = false;
+            document.getElementById('hint-btn').disabled = false;
+            document.getElementById('hint-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+
+            // Render details
+            document.getElementById('current-level-num').innerText = currentIndex + 1;
+            document.getElementById('category-name').innerText = currentQ.category;
+            document.getElementById('emoji-display').innerText = currentQ.emoji;
+            document.getElementById('hint-text').innerText = `Clue: ${currentQ.hint}`;
+
+            // Create Word Pattern (e.g. "_ _ _ _ - _ _")
+            const pattern = currentQ.displayAnswer.split('').map(char => {
+                if (char === ' ') return '  ';
+                if (char === '-') return '- ';
+                if (char === '&') return '& ';
+                return '_ ';
+            }).join('');
+            document.getElementById('word-pattern').innerText = pattern;
+
+            // Refocus input
+            setTimeout(() => {
+                document.getElementById('user-input').focus();
+            }, 100);
+
+            // Timer management
+            resetTimer();
+        }
+
+        // Timer Logic
+        function handleTimerToggle(checkbox) {
+            timerEnabled = checkbox.checked;
+            const timerContainer = document.getElementById('timer-container');
+            if (timerEnabled) {
+                timerContainer.classList.remove('opacity-30', 'pointer-events-none');
+                resetTimer();
+            } else {
+                clearInterval(timerInterval);
+                timerContainer.classList.add('opacity-30', 'pointer-events-none');
+                document.getElementById('timer-text').innerText = 'OFF';
+                document.getElementById('timer-bar').style.width = '100%';
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            if (!timerEnabled) return;
+
+            timeLeft = TIME_LIMIT;
+            updateTimerUI();
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    playSound('tick');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            const timerBar = document.getElementById('timer-bar');
+            const timerText = document.getElementById('timer-text');
+
+            if (!timerEnabled) return;
+
+            timerText.innerText = `${timeLeft}s`;
+            const percentage = (timeLeft / TIME_LIMIT) * 100;
+            timerBar.style.width = `${percentage}%`;
+
+            if (timeLeft <= 5) {
+                timerBar.className = 'bg-gradient-to-r from-rose-500 to-red-600 h-2.5 rounded-full transition-all duration-1000 w-full animate-pulse';
+                timerText.className = 'font-game font-bold text-rose-400 min-w-[28px] text-right text-lg';
+            } else {
+                timerBar.className = 'bg-gradient-to-r from-emerald-400 to-emerald-500 h-2.5 rounded-full transition-all duration-1000 w-full';
+                timerText.className = 'font-game font-bold text-emerald-400 min-w-[28px] text-right text-lg';
+            }
+        }
+
+        // Submit & Check Guess
+        function submitGuess(e) {
+            e.preventDefault();
+            const inputField = document.getElementById('user-input');
+            const rawInput = inputField.value.trim().toLowerCase();
+
+            if (!rawInput) return;
+
+            const currentQ = questions[currentIndex];
+            
+            // Clean input (remove special chars & extra spaces for comparison)
+            const cleanInput = rawInput.replace(/[^a-z0-9]/g, '');
+            const cleanTarget = currentQ.answer.replace(/[^a-z0-9]/g, '');
+            const isAltMatch = currentQ.alts.some(alt => alt.replace(/[^a-z0-9]/g, '') === cleanInput);
+
+            if (cleanInput === cleanTarget || isAltMatch) {
+                // CORRECT GUESS!
+                handleCorrectAnswer();
+            } else {
+                // WRONG GUESS!
+                handleWrongAnswer();
+            }
+        }
+
+        function handleCorrectAnswer() {
+            clearInterval(timerInterval);
+            playSound('correct');
+
+            // Calculate score
+            let pointsEarned = 10;
+            if (timerEnabled && timeLeft > 10) pointsEarned += 5; // Speed bonus
+            if (hintUsed) pointsEarned = Math.max(5, pointsEarned - 5);
+
+            score += pointsEarned;
+            streak++;
+            if (streak > maxStreak) maxStreak = streak;
+
+            // Update Header Stats
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('streak-display').innerText = streak;
+            document.getElementById('bonus-points-text').innerText = `+${pointsEarned} Points earned!`;
+
+            // Display Answer in Overlay
+            document.getElementById('revealed-answer').innerText = questions[currentIndex].displayAnswer;
+
+            // Show Confetti Effect!
+            triggerConfetti();
+
+            // Show Success Overlay with Next Button
+            document.getElementById('user-input').disabled = true;
+            document.getElementById('submit-btn').disabled = true;
+            document.getElementById('success-overlay').classList.remove('hidden');
+        }
+
+        function handleWrongAnswer() {
+            playSound('wrong');
+            streak = 0;
+            document.getElementById('streak-display').innerText = streak;
+
+            // Shake Animation on Card
+            const card = document.getElementById('game-card');
+            card.classList.add('animate-shake');
+            setTimeout(() => {
+                card.classList.remove('animate-shake');
+            }, 400);
+
+            // Highlight input briefly in red
+            const input = document.getElementById('user-input');
+            input.classList.add('border-rose-500', 'bg-rose-950/30');
+            setTimeout(() => {
+                input.classList.remove('border-rose-500', 'bg-rose-950/30');
+            }, 600);
+        }
+
+        function handleTimeout() {
+            playSound('wrong');
+            streak = 0;
+            document.getElementById('streak-display').innerText = streak;
+
+            document.getElementById('timeout-answer').innerText = questions[currentIndex].displayAnswer;
+            document.getElementById('user-input').disabled = true;
+            document.getElementById('submit-btn').disabled = true;
+            document.getElementById('timeout-overlay').classList.remove('hidden');
+        }
+
+        // Confetti Burst Trigger
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                // Burst 1
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#10B981', '#F59E0B', '#6366F1', '#EC4899']
+                });
+
+                // Secondary side bursts
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 40,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 }
+                    });
+                    confetti({
+                        particleCount: 40,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 }
+                    });
+                }, 150);
+            }
+        }
+
+        // Next Button Click Handler
+        function loadNextQuestion() {
+            currentIndex++;
+            loadQuestion();
+        }
+
+        // Use Hint Function
+        function useHint() {
+            if (hintUsed) return;
+            hintUsed = true;
+
+            const hintContainer = document.getElementById('hint-container');
+            hintContainer.classList.remove('hidden');
+
+            const hintBtn = document.getElementById('hint-btn');
+            hintBtn.disabled = true;
+            hintBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        // Show Game Complete Screen
+        function showCompletionScreen() {
+            clearInterval(timerInterval);
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-streak').innerText = maxStreak;
+            document.getElementById('completion-modal').classList.remove('hidden');
+            triggerConfetti();
+        }
+
+        // Restart Game
+        function restartGame() {
+            currentIndex = 0;
+            score = 0;
+            streak = 0;
+            maxStreak = 0;
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('streak-display').innerText = streak;
+            document.getElementById('completion-modal').classList.add('hidden');
+            loadQuestion();
+        }
+    </script>
+</body>
+</html>
